@@ -42,12 +42,17 @@ const rest_1 = __webpack_require__(5375);
 const https_proxy_agent_1 = __webpack_require__(7219);
 const token = core.getInput('token', { required: true });
 const targetInstanceUrl = core.getInput('targetInstanceUrl');
+const httpsProxy = process.env.HTTPS_PROXY;
 const octokit = targetInstanceUrl ? new rest_1.Octokit({
     auth: token
 }) : new rest_1.Octokit({
     auth: token,
     baseUrl: targetInstanceUrl,
-    agent: new https_proxy_agent_1.HttpsProxyAgent(process.env.HTTPS_PROXY)
+    request: {
+        agent: httpsProxy
+            ? new https_proxy_agent_1.HttpsProxyAgent(httpsProxy)
+            : undefined,
+    },
 });
 function forkRepo(owner, repo, org) {
     return __awaiter(this, void 0, void 0, function* () {

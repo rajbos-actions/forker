@@ -4,12 +4,17 @@ import {HttpsProxyAgent} from 'https-proxy-agent'
 
 const token: string = core.getInput('token', {required: true})
 const targetInstanceUrl: string = core.getInput('targetInstanceUrl')
+const httpsProxy: string = process.env.HTTPS_PROXY as string
 const octokit = targetInstanceUrl ? new Octokit({
   auth: token
 }) : new Octokit({
     auth: token,
     baseUrl: targetInstanceUrl,
-    agent: new HttpsProxyAgent((process.env.HTTPS_PROXY as string))
+    request: {
+      agent: httpsProxy
+        ? new HttpsProxyAgent(httpsProxy)
+        : undefined,
+    },
   })
 
 export async function forkRepo(
