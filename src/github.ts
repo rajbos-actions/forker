@@ -6,16 +6,16 @@ const token: string = core.getInput('token', {required: true})
 const targetInstanceUrl: string = core.getInput('targetInstanceUrl')
 const httpsProxy: string = process.env.HTTPS_PROXY as string
 const octokit = targetInstanceUrl ? new Octokit({
-  auth: token
-}) : new Octokit({
-    auth: token,
-    baseUrl: targetInstanceUrl,
+  auth: token,
+  baseUrl: targetInstanceUrl,
     request: {
       agent: httpsProxy
         ? new HttpsProxyAgent(httpsProxy)
         : undefined,
     },
-  })
+}) : new Octokit({
+  auth: token,
+})
 
 export async function forkRepo(
   owner: string,
