@@ -50,6 +50,7 @@ export async function run(): Promise<void> {
       }
     }
   } catch (err) {
+    core.info(`🚨 Error when forking the repo: ${err}`)
     core.setFailed(`🚨 Failed to create repository fork: ${err.message}`)
   }
 }
