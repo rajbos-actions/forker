@@ -28,6 +28,9 @@ inputs:
     description: 'List of allowed licenses for repository being forked'
     required: false
     default: 'undefined'
+  targetInstanceUrl:
+    description: 'GitHub target instance that will have the fork'
+    required: false
 runs:
   using: 'node12'
   main: 'dist/index.js'

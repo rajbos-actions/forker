@@ -2,7 +2,13 @@ import * as core from '@actions/core'
 import {Octokit} from '@octokit/rest'
 
 const token: string = core.getInput('token', {required: true})
-const octokit = new Octokit({auth: token})
+const targetInstanceUrl: string = core.getInput('targetInstanceUrl')
+const octokit = targetInstanceUrl ? new Octokit({
+  auth: token
+}) : new Octokit({
+    auth: token,
+    baseUrl: targetInstanceUrl
+  })
 
 export async function forkRepo(
   owner: string,
