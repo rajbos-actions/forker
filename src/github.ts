@@ -46,6 +46,7 @@ export async function forkRepo(
         `🚨 Insufficient permission to fork repository: ${err.message}`
       )
     } else {
+      core.debug("Received an error code: ${err.status}" + err.message)
       core.setFailed(`🚨 Failed to create fork of repository: ${repo}`)
     }
   }

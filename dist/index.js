@@ -2,6 +2,27 @@ require('./sourcemap-register.js');module.exports =
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 695:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+/* Named consts for GitHub API response codes as documented in https://docs.github.com/en/rest */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.HTTP = void 0;
+exports.HTTP = {
+    OK: 200,
+    CREATED: 201,
+    ACCEPTED: 202,
+    NO_CONTENT: 204,
+    FOUND: 302,
+    FORBIDDEN: 403,
+    NOT_FOUND: 404
+};
+
+
+/***/ }),
+
 /***/ 928:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
@@ -26,166 +47,151 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.isValidLicense = exports.isOrgMember = exports.inviteMember = exports.getUserId = exports.getRepoLicense = exports.getOrgMembership = exports.forkRepo = void 0;
 const core = __importStar(__webpack_require__(186));
+const const_1 = __webpack_require__(695);
 const rest_1 = __webpack_require__(375);
 const token = core.getInput('token', { required: true });
-const targetInstanceUrl = core.getInput('targetInstanceUrl');
-const octokit = targetInstanceUrl ? new rest_1.Octokit({
-    auth: token
-}) : new rest_1.Octokit({
-    auth: token,
-    baseUrl: targetInstanceUrl
-});
-function forkRepo(owner, repo, org) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const res = yield octokit.request('POST /repos/{owner}/{repo}/forks', {
-                owner,
-                repo,
-                organization: org ? org : ''
-            });
-            // Forks requests are still 'Accepted' (202) if the repository already exists at the specified location
-            // However, repositories with the same name but a different source are auto-incremented (eg. my-forked-repo-1)
-            if (res.status === 202) {
-                // Regex to determine whether the repository ends with a dash and a number
-                const regex = /-\d+$/;
-                const url = res.data.html_url;
-                if (regex.test(url)) {
-                    core.info(`⚠️ Warning: A repository with the same name may already exist at the target destination!`);
-                    core.info(`As a result, the new repository fork URL might be auto-incremented (eg. my-forked-repo-1).`);
-                    core.info(`If this was not intentional, please check for exisiting repositories on your Github account or organization!\n`);
-                }
-                core.info(`🎉 Forked repository now available at: ${res.data.html_url}`);
+const octokit = new rest_1.Octokit({ auth: token });
+async function forkRepo(owner, repo, org) {
+    try {
+        const res = await octokit.request('POST /repos/{owner}/{repo}/forks', {
+            owner,
+            repo,
+            organization: org ? org : ''
+        });
+        // Forks requests are still 'Accepted' (202) if the repository already exists at the specified location
+        // However, repositories with the same name but a different source are auto-incremented (eg. my-forked-repo-1)
+        if (res.status === const_1.HTTP.ACCEPTED) {
+            // Regex to determine whether the repository ends with a dash and a number
+            const regex = /-\d+$/;
+            const url = res.data.html_url;
+            if (regex.test(url)) {
+                core.info(`⚠️ Warning: A repository with the same name may already exist at the target destination!`);
+                core.info(`As a result, the new repository fork URL might be auto-incremented (eg. my-forked-repo-1).`);
+                core.info(`If this was not intentional, please check for exisiting repositories on your Github account or organization!\n`);
             }
+            core.info(`🎉 Forked repository now available at: ${res.data.html_url}`);
         }
-        catch (err) {
-            if (err.status === 403) {
-                core.setFailed(`🚨 Insufficient permission to fork repository: ${err.message}`);
-            }
-            else {
-                core.setFailed(`🚨 Failed to create fork of repository: ${repo}`);
-            }
+    }
+    catch (err) {
+        if (err.status === const_1.HTTP.FORBIDDEN) {
+            core.setFailed(`🚨 Insufficient permission to fork repository: ${err.message}`);
         }
-    });
+        else {
+            core.debug("Received an error code: ${err.status}" + err.message);
+            core.setFailed(`🚨 Failed to create fork of repository: ${repo}`);
+        }
+    }
 }
 exports.forkRepo = forkRepo;
-function getOrgMembership(org, user) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const res = yield octokit.request('GET /orgs/{org}/members/{username}', {
-                org,
-                username: user
-            });
-            // @ts-expect-error only return membership URL if response code is 204
-            if (res.status === 204) {
-                return res.url;
-            }
-            else {
-                core.setFailed(`🚨 Failed to retrieve membership status for user: ${user}`);
-                return '';
-            }
+async function getOrgMembership(org, user) {
+    try {
+        const res = await octokit.request('GET /orgs/{org}/members/{username}', {
+            org,
+            username: user
+        });
+        // @ts-expect-error only return membership URL if response code is 204
+        if (res.status === const_1.HTTP.NO_CONTENT) {
+            return res.url;
         }
-        catch (err) {
-            if (err.status === 404) {
-                core.debug(`User ${user} not found in ${org} organization`);
-            }
-            else if (err.status === 302) {
-                core.setFailed(`🚨 Requester not a member of organization: ${err.message}`);
-            }
-            else {
-                core.setFailed(`🚨 Failed to retrieve membership status for user: ${err.message}`);
-            }
+        else {
+            core.setFailed(`🚨 Failed to retrieve membership status for user: ${user}`);
             return '';
         }
-    });
+    }
+    catch (err) {
+        if (err.status === const_1.HTTP.NOT_FOUND) {
+            core.debug(`User ${user} not found in ${org} organization`);
+        }
+        else if (err.status === const_1.HTTP.FOUND) {
+            core.setFailed(`🚨 Requester not a member of organization: ${err.message}`);
+        }
+        else {
+            core.setFailed(`🚨 Failed to retrieve membership status for user: ${err.message}`);
+        }
+        return '';
+    }
 }
 exports.getOrgMembership = getOrgMembership;
-function getRepoLicense(owner, repo) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { data } = yield octokit.request('GET /repos/{owner}/{repo}/license', {
-                owner,
-                repo
-            });
-            if (data !== null && data.license !== null) {
-                return data.license.key;
-            }
-            else {
+async function getRepoLicense(owner, repo) {
+    try {
+        const res = await octokit.request('GET /repos/{owner}/{repo}/license', {
+            owner,
+            repo
+        });
+        if (res.status === const_1.HTTP.OK && res.data.license !== null) {
+            const licenseKey = res.data.license.key;
+            if (licenseKey === 'other') {
+                core.setFailed(`🚨 Failed to detect a valid LICENSE file for repository: ${repo}`);
                 return '';
             }
+            else {
+                return licenseKey;
+            }
         }
-        catch (err) {
-            core.setFailed(`🚨 Failed to retrieve license for repository: ${err.message}`);
+        else {
+            core.setFailed(`🚨 Failed to retrieve license for repository: ${repo}`);
             return '';
         }
-    });
+    }
+    catch (err) {
+        core.setFailed(`🚨 Failed to retrieve license for repository: ${err.message}`);
+        return '';
+    }
 }
 exports.getRepoLicense = getRepoLicense;
-function getUserId(user) {
-    return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const { data } = yield octokit.request('GET /users/{username}', {
-                username: user
-            });
-            return data.id;
+async function getUserId(user) {
+    try {
+        const res = await octokit.request('GET /users/{username}', {
+            username: user
+        });
+        if (res.status === const_1.HTTP.OK) {
+            return res.data.id;
         }
-        catch (err) {
-            core.setFailed(`🚨 Failed to retrieve user ID for user: ${err.message}`);
-            return '';
+        else {
+            core.setFailed(`🚨 Failed to retrieve ID for user: ${user}`);
+            return -1;
         }
-    });
+    }
+    catch (err) {
+        core.setFailed(`🚨 Failed to retrieve user ID for user: ${err.message}`);
+        return -1;
+    }
 }
 exports.getUserId = getUserId;
-function inviteMember(org, user) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const id = yield getUserId(user);
-        const userId = Number.parseInt(id);
-        core.debug(`Got user ID: ${userId}`);
-        let data;
-        try {
-            data = yield octokit.request('POST /orgs/{org}/invitations', {
-                org,
-                invitee_id: userId
-            });
-            if (data.status === 201) {
-                core.debug(`User successfully invited`);
-            }
-            else {
-                core.debug(`Unable to validate invitation`);
-                core.setFailed(`🚨 Failed to invite user to org: ${org}`);
-            }
+async function inviteMember(org, user) {
+    const id = await getUserId(user);
+    core.debug(`Got user ID: ${id}`);
+    try {
+        const res = await octokit.request('POST /orgs/{org}/invitations', {
+            org,
+            invitee_id: id
+        });
+        if (res.status === const_1.HTTP.CREATED) {
+            core.debug(`User successfully invited`);
         }
-        catch (err) {
-            core.setFailed(`🚨 Failed to invite user to org: ${err.message}`);
+        else {
+            core.debug(`Unable to validate invitation`);
+            core.setFailed(`🚨 Failed to invite user to org: ${org}`);
         }
-    });
+    }
+    catch (err) {
+        core.setFailed(`🚨 Failed to invite user to org: ${err.message}`);
+    }
 }
 exports.inviteMember = inviteMember;
-function isOrgMember(org, user) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const orgMembership = yield getOrgMembership(org, user);
-        core.debug(`Got org membership: ${orgMembership}`);
-        return orgMembership ? true : false;
-    });
+async function isOrgMember(org, user) {
+    const orgMembership = await getOrgMembership(org, user);
+    core.debug(`Got organization membership: ${orgMembership}`);
+    return orgMembership ? true : false;
 }
 exports.isOrgMember = isOrgMember;
-function isValidLicense(owner, repo, whitelist) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const repoLicense = yield getRepoLicense(owner, repo);
-        core.debug(`Got license: ${repoLicense}`);
-        return whitelist.includes(repoLicense);
-    });
+async function isValidLicense(owner, repo, whitelist) {
+    const repoLicense = await getRepoLicense(owner, repo);
+    core.debug(`Got repository license: ${repoLicense}`);
+    return whitelist.includes(repoLicense);
 }
 exports.isValidLicense = isValidLicense;
 
@@ -216,59 +222,50 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__webpack_require__(186));
 const github_1 = __webpack_require__(928);
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const owner = core.getInput('owner', { required: true });
-        const repo = core.getInput('repo', { required: true });
-        const org = core.getInput('org', { required: false });
-        const user = core.getInput('user', { required: false });
-        const addUser = core.getBooleanInput('addUser', { required: false });
-        const licenseAllowlist = core.getMultilineInput('licenseAllowlist', {
-            required: false
-        });
-        try {
-            // Optionally enforce a whitelist of allowed repository licenses for forking
-            if (!licenseAllowlist.includes('undefined')) {
-                core.info(`⚖️ Checking repository license for ${repo} against provided whitelist...`);
-                if (yield github_1.isValidLicense(owner, repo, licenseAllowlist)) {
-                    core.info(`✅ Valid license, proceeding with fork creation`);
-                }
-                else {
-                    core.setFailed(`🚨 License not found in whitelist, please check to ensure the repository is compliant`);
-                }
-            }
-            // Fork the specified repo into user namespace, unless an organization is specified
-            core.info(`⑂ Creating fork of repository ${repo}...`);
-            yield github_1.forkRepo(owner, repo, org);
-            // Optionally check org membership status for a specified user, and invite if missing
-            if (addUser && typeof user !== 'undefined') {
-                core.info(`🔍 Checking membership status of user ${user} in ${org} organization...`);
-                if (yield github_1.isOrgMember(org, user)) {
-                    core.info(`✅ User ${user} already a member of ${org}, no action needed`);
-                }
-                else {
-                    core.info(`📥 Inviting user ${user} to ${org} org, make sure they check their inbox!`);
-                    github_1.inviteMember(org, user);
-                }
-            }
-        }
-        catch (err) {
-            core.setFailed(`🚨 Failed to create repository fork: ${err.message}`);
-        }
+async function run() {
+    const owner = core.getInput('owner', { required: true });
+    const repo = core.getInput('repo', { required: true });
+    const org = core.getInput('org', { required: false });
+    const user = core.getInput('user', { required: false });
+    const addUser = core.getBooleanInput('addUser', { required: false });
+    const licenseAllowlist = core.getMultilineInput('licenseAllowlist', {
+        required: false
     });
+    try {
+        // Optionally enforce a whitelist of allowed repository licenses for forking
+        if (!licenseAllowlist.includes('undefined')) {
+            core.info(`⚖️ Checking repository license for ${repo} against provided whitelist...`);
+            if (await github_1.isValidLicense(owner, repo, licenseAllowlist)) {
+                core.info(`✅ Valid license, proceeding with fork creation`);
+            }
+            else {
+                core.setFailed(`🚨 License not found in whitelist, please check to ensure the repository is compliant!`);
+                // Do not proceed with fork creation if license compliance check fails
+                return;
+            }
+        }
+        // Fork the specified repo into user namespace, unless an organization is specified
+        core.info(`⑂ Creating fork of repository ${repo}...`);
+        await github_1.forkRepo(owner, repo, org);
+        // Optionally check org membership status for a specified user, and invite if missing
+        if (addUser && org && typeof user !== 'undefined') {
+            core.info(`🔍 Checking membership status of user ${user} in ${org} organization...`);
+            if (await github_1.isOrgMember(org, user)) {
+                core.info(`✅ User ${user} already a member of ${org}, no action needed`);
+            }
+            else {
+                core.info(`📥 Inviting user ${user} to ${org} org, make sure they check their inbox!`);
+                github_1.inviteMember(org, user);
+            }
+        }
+    }
+    catch (err) {
+        core.setFailed(`🚨 Failed to create repository fork: ${err.message}`);
+    }
 }
 exports.run = run;
 run();
